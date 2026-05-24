@@ -7,6 +7,7 @@ dependency. In dev mode (no OAUTH_CLIENT_ID), auth is bypassed automatically.
 import asyncio
 import json
 import logging
+import os
 from typing import Any
 
 from dependencies import (
@@ -122,6 +123,16 @@ def _available_models() -> list[dict[str, Any]]:
             "tier": "free",
         },
     ]
+    azure_model_id = os.environ.get("ML_INTERN_AZURE_MODEL_ID", "").strip()
+    if azure_model_id:
+        models.append(
+            {
+                "id": azure_model_id,
+                "label": os.environ.get("ML_INTERN_AZURE_MODEL_LABEL", "Azure OpenAI"),
+                "provider": "azure",
+                "tier": os.environ.get("ML_INTERN_AZURE_MODEL_TIER", "pro"),
+            }
+        )
     return models
 
 
@@ -129,7 +140,11 @@ AVAILABLE_MODELS = _available_models()
 
 
 def _is_premium_model(model_id: str) -> bool:
-    return model_id in PREMIUM_MODEL_IDS
+    azure_model_id = os.environ.get("ML_INTERN_AZURE_MODEL_ID", "").strip()
+    azure_tier = os.environ.get("ML_INTERN_AZURE_MODEL_TIER", "pro")
+    return model_id in PREMIUM_MODEL_IDS or (
+        bool(azure_model_id) and model_id == azure_model_id and azure_tier == "pro"
+    )
 
 
 async def _model_override_for_new_session(

@@ -18,6 +18,11 @@ def test_model_switcher_accepts_supported_local_prefixes():
     assert model_switcher.is_valid_model_id("llamacpp/llama-3.1-8b")
 
 
+def test_model_switcher_accepts_azure_deployment_ids():
+    assert model_switcher.is_valid_model_id("azure/gpt-55-prod")
+    assert not model_switcher.is_valid_model_id("azure/")
+
+
 def test_model_switcher_rejects_empty_or_whitespace_local_ids():
     assert not model_switcher.is_valid_model_id("ollama/")
     assert not model_switcher.is_valid_model_id("vllm/")
@@ -37,6 +42,17 @@ def test_local_models_skip_hf_router_catalog_output():
 
     assert model_switcher._print_hf_routing_info(
         "ollama/llama3.1:8b",
+        NoPrintConsole(),
+    )
+
+
+def test_azure_models_skip_hf_router_catalog_output():
+    class NoPrintConsole:
+        def print(self, *args, **kwargs):
+            raise AssertionError("azure models should not print HF catalog info")
+
+    assert model_switcher._print_hf_routing_info(
+        "azure/gpt-55-prod",
         NoPrintConsole(),
     )
 

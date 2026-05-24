@@ -32,6 +32,57 @@ def test_openai_max_effort_is_still_rejected():
         raise AssertionError("Expected UnsupportedEffortError for max effort")
 
 
+def test_resolve_azure_params_maps_env_vars(monkeypatch):
+    monkeypatch.setenv("AZURE_API_KEY", "azure-secret")
+    monkeypatch.setenv("AZURE_API_BASE", "https://example.openai.azure.com/")
+    monkeypatch.setenv("AZURE_API_VERSION", "2026-04-24")
+
+    params = _resolve_llm_params(
+        "azure/gpt-55-prod",
+        reasoning_effort="xhigh",
+        strict=True,
+    )
+
+    assert params == {
+        "model": "azure/gpt-55-prod",
+        "api_key": "azure-secret",
+        "api_base": "https://example.openai.azure.com",
+        "api_version": "2026-04-24",
+        "reasoning_effort": "xhigh",
+    }
+
+
+def test_resolve_azure_params_uses_azure_openai_env_aliases(monkeypatch):
+    monkeypatch.delenv("AZURE_API_KEY", raising=False)
+    monkeypatch.delenv("AZURE_API_BASE", raising=False)
+    monkeypatch.delenv("AZURE_API_VERSION", raising=False)
+    monkeypatch.setenv("AZURE_OPENAI_API_KEY", "alias-secret")
+    monkeypatch.setenv(
+        "AZURE_OPENAI_ENDPOINT", "https://example.openai.azure.com/openai/v1"
+    )
+    monkeypatch.setenv("AZURE_OPENAI_API_VERSION", "2026-04-24")
+    monkeypatch.setenv("LOCAL_LLM_API_KEY", "local-secret")
+    monkeypatch.setenv("LOCAL_LLM_BASE_URL", "http://localhost:9000")
+
+    params = _resolve_llm_params("azure/gpt-55-prod")
+
+    assert params["model"] == "azure/gpt-55-prod"
+    assert params["api_key"] == "alias-secret"
+    assert params["api_base"] == "https://example.openai.azure.com/openai/v1"
+    assert params["api_version"] == "2026-04-24"
+
+
+def test_resolve_azure_params_rejects_max_effort_in_strict_mode(monkeypatch):
+    monkeypatch.setenv("AZURE_API_KEY", "azure-secret")
+
+    with pytest.raises(UnsupportedEffortError, match="Azure OpenAI"):
+        _resolve_llm_params(
+            "azure/gpt-55-prod",
+            reasoning_effort="max",
+            strict=True,
+        )
+
+
 def test_resolve_ollama_params_adds_v1_and_uses_default_key(monkeypatch):
     monkeypatch.delenv("OLLAMA_API_KEY", raising=False)
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:11434")

@@ -98,6 +98,14 @@ _OPENAI_EFFORTS = {"minimal", "low", "medium", "high", "xhigh"}
 _HF_EFFORTS = {"low", "medium", "high"}
 
 
+def _first_env(*names: str) -> str | None:
+    for name in names:
+        value = os.environ.get(name)
+        if value and value.strip():
+            return value.strip()
+    return None
+
+
 class UnsupportedEffortError(ValueError):
     """The requested effort isn't valid for this provider's API surface.
 
@@ -146,6 +154,31 @@ def _resolve_local_model_params(
     }
 
 
+def _resolve_azure_model_params(
+    model_name: str,
+    reasoning_effort: str | None = None,
+    strict: bool = False,
+) -> dict:
+    params: dict = {"model": model_name}
+
+    if api_key := _first_env("AZURE_API_KEY", "AZURE_OPENAI_API_KEY"):
+        params["api_key"] = api_key
+    if api_base := _first_env("AZURE_API_BASE", "AZURE_OPENAI_ENDPOINT"):
+        params["api_base"] = api_base.rstrip("/")
+    if api_version := _first_env("AZURE_API_VERSION", "AZURE_OPENAI_API_VERSION"):
+        params["api_version"] = api_version
+
+    if reasoning_effort:
+        if reasoning_effort not in _OPENAI_EFFORTS:
+            if strict:
+                raise UnsupportedEffortError(
+                    f"Azure OpenAI doesn't accept effort={reasoning_effort!r}"
+                )
+        else:
+            params["reasoning_effort"] = reasoning_effort
+    return params
+
+
 def _resolve_llm_params(
     model_name: str,
     session_hf_token: str | None = None,
@@ -168,8 +201,16 @@ def _resolve_llm_params(
       will reject this; the probe's cascade catches that and falls back
       to no thinking.
 
-    • ``openai/<model>`` — ``reasoning_effort`` forwarded as a top-level
-      kwarg (GPT-5 / o-series). LiteLLM uses the user's ``OPENAI_API_KEY``.
+        • ``openai/<model>`` — ``reasoning_effort`` forwarded as a top-level
+            kwarg (GPT-5 / o-series). LiteLLM uses the user's ``OPENAI_API_KEY``.
+
+        • ``azure/<deployment>`` — Azure OpenAI deployment id. We pass the
+            Azure adapter model id through unchanged and map Azure-specific env
+            vars into LiteLLM kwargs: ``AZURE_API_KEY`` / ``AZURE_OPENAI_API_KEY``,
+            ``AZURE_API_BASE`` / ``AZURE_OPENAI_ENDPOINT``, and
+            ``AZURE_API_VERSION`` / ``AZURE_OPENAI_API_VERSION``. ``LOCAL_LLM_*``
+            is intentionally not used for Azure; those vars are reserved for local
+            OpenAI-compatible endpoints.
 
     • ``ollama/<model>``, ``vllm/<model>``, ``lm_studio/<model>``, and
       ``llamacpp/<model>`` — local OpenAI-compatible endpoints. The id prefix
@@ -242,6 +283,9 @@ def _resolve_llm_params(
             else:
                 params["reasoning_effort"] = reasoning_effort
         return params
+
+    if model_name.startswith("azure/"):
+        return _resolve_azure_model_params(model_name, reasoning_effort, strict)
 
     if is_reserved_local_model_id(model_name):
         raise ValueError(f"Unsupported local model id: {model_name}")

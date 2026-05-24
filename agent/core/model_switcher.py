@@ -29,8 +29,8 @@ from agent.core.local_models import (
 
 
 # Suggested models shown by `/model` (not a gate). Users can paste any HF
-# model id (e.g. "MiniMaxAI/MiniMax-M2.7") or an `anthropic/` / `openai/`
-# prefix for direct API access. For HF ids, append ":fastest" /
+# model id (e.g. "MiniMaxAI/MiniMax-M2.7") or an `anthropic/`, `openai/`,
+# or `azure/` prefix for direct API access. For HF ids, append ":fastest" /
 # ":cheapest" / ":preferred" / ":<provider>" to override the default
 # routing policy (auto = fastest with failover).
 SUGGESTED_MODELS = [
@@ -50,7 +50,7 @@ SUGGESTED_MODELS = [
 
 
 _ROUTING_POLICIES = {"fastest", "cheapest", "preferred"}
-_DIRECT_PREFIXES = ("anthropic/", "openai/", *LOCAL_MODEL_PREFIXES)
+_DIRECT_PREFIXES = ("anthropic/", "openai/", "azure/", *LOCAL_MODEL_PREFIXES)
 _LOCAL_PROBE_TIMEOUT = 15.0
 
 
@@ -60,6 +60,7 @@ def is_valid_model_id(model_id: str) -> bool:
     Accepts:
       • anthropic/<model>
       • openai/<model>
+    • azure/<deployment>
       • ollama/<model>, vllm/<model>, lm_studio/<model>, llamacpp/<model>
       • <org>/<model>[:<tag>]            (HF router; tag = provider or policy)
       • huggingface/<org>/<model>[:<tag>] (same, accepts legacy prefix)
@@ -162,7 +163,8 @@ def print_model_listing(config, console) -> None:
     console.print(
         "\n[dim]Paste any HF model id (e.g. 'MiniMaxAI/MiniMax-M2.7').\n"
         "Add ':fastest', ':cheapest', ':preferred', or ':<provider>' to override routing.\n"
-        "Use 'anthropic/<model>' or 'openai/<model>' for direct API access.\n"
+        "Use 'anthropic/<model>', 'openai/<model>', or 'azure/<deployment>' "
+        "for direct API access.\n"
         "Use 'ollama/<model>', 'vllm/<model>', 'lm_studio/<model>', or "
         "'llamacpp/<model>' for local OpenAI-compatible endpoints.[/dim]"
     )
@@ -175,6 +177,7 @@ def print_invalid_id(arg: str, console) -> None:
         "  • <org>/<model>[:tag]    (HF router — paste from huggingface.co)\n"
         "  • anthropic/<model>\n"
         "  • openai/<model>\n"
+        "  • azure/<deployment>\n"
         "  • ollama/<model> | vllm/<model> | lm_studio/<model> | llamacpp/<model>[/dim]"
     )
 

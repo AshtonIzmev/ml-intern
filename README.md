@@ -33,11 +33,15 @@ Create a `.env` file in the project root (or export these in your shell):
 ```bash
 ANTHROPIC_API_KEY=<your-anthropic-api-key> # if using anthropic models
 OPENAI_API_KEY=<your-openai-api-key> # if using openai models
+AZURE_API_KEY=<your-azure-openai-key> # if using azure/<deployment> models
+AZURE_API_BASE=https://<resource>.openai.azure.com # or AZURE_OPENAI_ENDPOINT
+AZURE_API_VERSION=2026-04-24
 LOCAL_LLM_BASE_URL=http://localhost:8000 # shared fallback for local model prefixes
 LOCAL_LLM_API_KEY=<optional-local-api-key> # optional shared local API key
 HF_TOKEN=<your-hugging-face-token>
-GITHUB_TOKEN=<github-personal-access-token> 
+GITHUB_TOKEN=<github-personal-access-token>
 ```
+
 If no `HF_TOKEN` is set, the CLI will prompt you to paste one on first launch
 unless you start on a local model. To get a GITHUB_TOKEN follow the tutorial
 [here](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens#creating-a-fine-grained-personal-access-token).
@@ -61,6 +65,7 @@ ml-intern "fine-tune llama on my dataset"
 ```bash
 ml-intern --model anthropic/claude-opus-4-7 "your prompt"   # requires ANTHROPIC_API_KEY
 ml-intern --model openai/gpt-5.5 "your prompt"              # requires OPENAI_API_KEY
+ml-intern --model azure/gpt-55-prod "your prompt"           # requires Azure OpenAI env vars
 ml-intern --model ollama/llama3.1:8b "your prompt"
 ml-intern --model vllm/meta-llama/Llama-3.1-8B-Instruct "your prompt"
 ml-intern --sandbox-tools "your prompt"                         # use HF Space sandbox tools
@@ -69,8 +74,24 @@ ml-intern --no-stream "your prompt"
 ```
 
 Run `ml-intern` then `/model` to see the full list of suggested model ids
-(Claude, GPT, HF-router models like MiniMax, Kimi, GLM, DeepSeek, and local
-model prefixes).
+(Claude, GPT, Azure deployment ids, HF-router models like MiniMax, Kimi, GLM,
+DeepSeek, and local model prefixes).
+
+**Azure OpenAI:**
+
+Azure uses deployment names, so select it as `azure/<your-deployment-name>`
+rather than `openai/<model-name>`:
+
+```bash
+export AZURE_API_KEY=<your-azure-openai-key>
+export AZURE_API_BASE=https://<resource>.openai.azure.com
+export AZURE_API_VERSION=2026-04-24
+ml-intern --model azure/<your-deployment-name> "your prompt"
+```
+
+The aliases `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and
+`AZURE_OPENAI_API_VERSION` are also supported. `LOCAL_LLM_BASE_URL` and
+`LOCAL_LLM_API_KEY` are only for local OpenAI-compatible endpoints, not Azure.
 
 **Local models:**
 
@@ -396,7 +417,9 @@ Edit `configs/cli_agent_config.json` for CLI defaults, or
 Note: Environment variables like `${YOUR_TOKEN}` are auto-substituted from `.env`.
 
 ## Cite ml-intern
+
 If you use `ml-intern` in your work, please cite it by using the following BibTeX entry or similar.
+
 ```bibtex
 @Misc{ml-intern,
   title =        {ml-intern: an agent that autonomously researches, writes, and ships good quality ML related code using the Hugging Face ecosystem},
