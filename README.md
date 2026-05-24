@@ -89,6 +89,16 @@ export AZURE_API_VERSION=2026-04-24
 ml-intern --model azure/<your-deployment-name> "your prompt"
 ```
 
+For Azure AI Foundry project endpoints, use the target URI shown in Foundry;
+the app will trim a trailing `/responses` and route it through the OpenAI v1
+compatible path:
+
+```bash
+export AZURE_API_KEY=<your-azure-openai-key>
+export AZURE_API_BASE=https://<resource>.services.ai.azure.com/api/projects/<project>/openai/v1/responses
+ml-intern --model azure/<your-deployment-name> "your prompt"
+```
+
 The aliases `AZURE_OPENAI_API_KEY`, `AZURE_OPENAI_ENDPOINT`, and
 `AZURE_OPENAI_API_VERSION` are also supported. `LOCAL_LLM_BASE_URL` and
 `LOCAL_LLM_API_KEY` are only for local OpenAI-compatible endpoints, not Azure.

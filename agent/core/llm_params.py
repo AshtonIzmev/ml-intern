@@ -121,6 +121,21 @@ def _local_api_base(base_url: str) -> str:
     return f"{base}/v1"
 
 
+def _is_azure_openai_v1_endpoint(api_base: str | None) -> bool:
+    if not api_base:
+        return False
+    return "/openai/v1" in api_base or ".services.ai.azure.com" in api_base
+
+
+def _azure_openai_v1_api_base(api_base: str) -> str:
+    base = api_base.strip().rstrip("/")
+    marker = "/openai/v1"
+    if marker in base:
+        prefix, _, _suffix = base.partition(marker)
+        return f"{prefix}{marker}"
+    return f"{base}{marker}"
+
+
 def _resolve_local_model_params(
     model_name: str,
     reasoning_effort: str | None = None,
@@ -159,14 +174,26 @@ def _resolve_azure_model_params(
     reasoning_effort: str | None = None,
     strict: bool = False,
 ) -> dict:
-    params: dict = {"model": model_name}
+    deployment_name = model_name.removeprefix("azure/")
+    api_key = _first_env("AZURE_API_KEY", "AZURE_OPENAI_API_KEY")
+    raw_api_base = _first_env("AZURE_API_BASE", "AZURE_OPENAI_ENDPOINT")
 
-    if api_key := _first_env("AZURE_API_KEY", "AZURE_OPENAI_API_KEY"):
-        params["api_key"] = api_key
-    if api_base := _first_env("AZURE_API_BASE", "AZURE_OPENAI_ENDPOINT"):
-        params["api_base"] = api_base.rstrip("/")
-    if api_version := _first_env("AZURE_API_VERSION", "AZURE_OPENAI_API_VERSION"):
-        params["api_version"] = api_version
+    if raw_api_base and _is_azure_openai_v1_endpoint(raw_api_base):
+        params: dict = {
+            "model": f"openai/{deployment_name}",
+            "api_base": _azure_openai_v1_api_base(raw_api_base),
+        }
+        if api_key:
+            params["api_key"] = api_key
+    else:
+        params = {"model": model_name}
+
+        if api_key:
+            params["api_key"] = api_key
+        if raw_api_base:
+            params["api_base"] = raw_api_base.rstrip("/")
+        if api_version := _first_env("AZURE_API_VERSION", "AZURE_OPENAI_API_VERSION"):
+            params["api_version"] = api_version
 
     if reasoning_effort:
         if reasoning_effort not in _OPENAI_EFFORTS:
@@ -204,13 +231,15 @@ def _resolve_llm_params(
         • ``openai/<model>`` — ``reasoning_effort`` forwarded as a top-level
             kwarg (GPT-5 / o-series). LiteLLM uses the user's ``OPENAI_API_KEY``.
 
-        • ``azure/<deployment>`` — Azure OpenAI deployment id. We pass the
-            Azure adapter model id through unchanged and map Azure-specific env
-            vars into LiteLLM kwargs: ``AZURE_API_KEY`` / ``AZURE_OPENAI_API_KEY``,
-            ``AZURE_API_BASE`` / ``AZURE_OPENAI_ENDPOINT``, and
-            ``AZURE_API_VERSION`` / ``AZURE_OPENAI_API_VERSION``. ``LOCAL_LLM_*``
-            is intentionally not used for Azure; those vars are reserved for local
-            OpenAI-compatible endpoints.
+        • ``azure/<deployment>`` — Azure OpenAI deployment id. Classic Azure
+            resource endpoints use LiteLLM's Azure adapter unchanged. Azure AI
+            Foundry project endpoints (``*.services.ai.azure.com`` or URLs already
+            containing ``/openai/v1``) are routed through LiteLLM's OpenAI-compatible
+            adapter as ``openai/<deployment>`` because those endpoints expose OpenAI
+            v1 routes directly instead of Azure's legacy
+            ``/openai/deployments/...`` shape. ``LOCAL_LLM_*`` is intentionally not
+            used for Azure; those vars are reserved for local OpenAI-compatible
+            endpoints.
 
     • ``ollama/<model>``, ``vllm/<model>``, ``lm_studio/<model>``, and
       ``llamacpp/<model>`` — local OpenAI-compatible endpoints. The id prefix

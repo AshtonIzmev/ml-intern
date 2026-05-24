@@ -66,10 +66,32 @@ def test_resolve_azure_params_uses_azure_openai_env_aliases(monkeypatch):
 
     params = _resolve_llm_params("azure/gpt-55-prod")
 
-    assert params["model"] == "azure/gpt-55-prod"
+    assert params["model"] == "openai/gpt-55-prod"
     assert params["api_key"] == "alias-secret"
     assert params["api_base"] == "https://example.openai.azure.com/openai/v1"
-    assert params["api_version"] == "2026-04-24"
+    assert "api_version" not in params
+
+
+def test_resolve_azure_foundry_target_uri_uses_openai_v1_base(monkeypatch):
+    monkeypatch.setenv("AZURE_API_KEY", "foundry-secret")
+    monkeypatch.setenv(
+        "AZURE_API_BASE",
+        "https://random-openai-resource.services.ai.azure.com/api/projects/random-openai/openai/v1/responses",
+    )
+    monkeypatch.setenv("AZURE_API_VERSION", "2026-04-24")
+
+    params = _resolve_llm_params(
+        "azure/gpt-5.5",
+        reasoning_effort="high",
+        strict=True,
+    )
+
+    assert params == {
+        "model": "openai/gpt-5.5",
+        "api_key": "foundry-secret",
+        "api_base": "https://random-openai-resource.services.ai.azure.com/api/projects/random-openai/openai/v1",
+        "reasoning_effort": "high",
+    }
 
 
 def test_resolve_azure_params_rejects_max_effort_in_strict_mode(monkeypatch):
